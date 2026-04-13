@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body { margin: 0; padding: 0; background: #1e1e1e; }
+.terminal { font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 15px; line-height: 1.7; color: #d4d4d4; padding: 24px 28px; background: #1e1e1e; width: 720px; white-space: pre; }
+.magenta { color: #c586c0; }
+.yellow { color: #dcdcaa; }
+.green { color: #6a9955; }
+.red { color: #f44747; }
+.white { color: #ffffff; font-weight: bold; }
+.gray { color: #808080; }
+.blue { color: #569cd6; }
+.cyan { color: #4ec9b0; }
+.title-bar { background: #323232; color: #cccccc; padding: 8px 16px; font-family: 'Menlo', monospace; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.dot-red { background: #ff5f56; }
+.dot-yellow { background: #ffbd2e; }
+.dot-green { background: #27c93f; }
+.dots { display: flex; gap: 6px; margin-right: 12px; }
+.sep { border-top: 2px dashed #555; margin: 4px 0; }
+</style></head><body>
+<div class="title-bar">
+  <div class="dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+  Terminal - npm run console
+</div>
+<div class="terminal"><span class="blue">=========================================
+  CRASH TEST - Data Persistence
+=========================================</span>
+
+<span class="gray">--- Step 1: Update lesson to InProgress ---</span>
+
+<span class="gray">Choose an option [1-6]:</span> <span class="white">2</span>
+<span class="gray">Enter lesson ID:</span> <span class="white">L-1001</span>
+<span class="green">[TRANSITION]</span> Lesson L-1001: Created -> <span class="yellow">InProgress</span>
+<span class="green">Status changed to InProgress</span>
+  Timestamp: 2026-04-07T09:54:46.448Z
+
+<span class="gray">--- Step 2: Kill program ---</span>
+
+<span class="red">^C  (Ctrl+C -- program terminated!)</span>
+<div class="sep"></div>
+<span class="gray">--- Step 3: Restart & verify ---</span>
+
+<span class="cyan">$ npm run console</span>
+<span class="gray">Choose an option [1-6]:</span> <span class="white">3</span>
+<span class="gray">Enter lesson ID:</span> <span class="white">L-1001</span>
+
+<span class="magenta">[CACHE_MISS]</span> Lesson L-1001 loaded from file
+
+<span class="yellow">+--- Lesson Details --------------------+</span>
+  ID:           L-1001
+  Student:      Aisulu
+  Topic:        Past Simple Tense
+  Status:       <span class="yellow">InProgress</span>  <span class="green"><- SURVIVED CRASH!</span>
+  Created:      2026-04-07T09:44:39.930Z
+  In Progress:  2026-04-07T09:54:46.448Z
+<span class="yellow">+---------------------------------------+</span>
+
+<span class="green">Data persisted through crash via writeFileSync()</span>
+</div>
+</body></html>
