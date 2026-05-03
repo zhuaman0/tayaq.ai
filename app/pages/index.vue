@@ -54,7 +54,7 @@
                 😤
               </div>
               <div>
-                <p class="text-sm text-accent-red font-semibold mb-1">Qatel Mugalim</p>
+                <p class="text-sm text-accent-red font-semibold mb-1">Tayaq.ai</p>
                 <p class="text-gray-300 leading-relaxed">
                   <span class="text-accent-amber">"20 жасқа келдің,</span> бірақ 'I am went' деп жазасың ба?!
                   Тіпті менің көршінің мысығы 'went' деген past tense екенін біледі!
@@ -405,7 +405,7 @@ const startLearning = () => {
 
 // SEO
 useHead({
-  title: 'Qatel Mugalim — The AI English Tutor That Roasts You in Kazakh 🔥',
+  title: 'Tayaq.ai — The AI English Tutor That Roasts You in Kazakh 🔥',
   meta: [
     {
       name: 'description',

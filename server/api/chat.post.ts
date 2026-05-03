@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
   const openai = new OpenAI({ apiKey })
 
   const stream = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-4.1',
     messages: [
       { role: 'system', content: systemPrompt },
       ...body.messages.map(msg => ({
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
     ],
     stream: true,
     temperature: 0.9,
-    max_tokens: 800,
+    max_tokens: 400,
   })
 
   // Set SSE headers

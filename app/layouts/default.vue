@@ -7,22 +7,59 @@
           <NuxtLink to="/" class="flex items-center gap-2 group">
             <span class="text-2xl">🔥</span>
             <span class="font-display font-bold text-xl text-white group-hover:text-accent-red transition-colors">
-              Qatel Mugalim
+              Tayaq.ai
             </span>
           </NuxtLink>
-          <div class="flex items-center gap-6">
-            <a href="#how-it-works" class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block">
-              How It Works
-            </a>
-            <a href="#testimonials" class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block">
-              Reviews
-            </a>
+          <div class="flex items-center gap-4 sm:gap-6">
             <NuxtLink
-              to="/"
-              class="px-4 py-2 text-sm font-semibold text-white bg-accent-red/10 border border-accent-red/30 rounded-lg hover:bg-accent-red/20 transition-all"
+              to="/vocab"
+              class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block"
             >
-              Start Learning
+              📚 Vocabulary
             </NuxtLink>
+            <NuxtLink
+              to="/leaderboard"
+              class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block"
+            >
+              🏆 Leaderboard
+            </NuxtLink>
+            <NuxtLink
+              to="/map"
+              class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block"
+            >
+              🗺️ Map
+            </NuxtLink>
+            <NuxtLink
+              to="/community"
+              class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block"
+            >
+              👥 Community
+            </NuxtLink>
+            <!-- Authenticated -->
+            <template v-if="user">
+              <NuxtLink
+                to="/profile"
+                class="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1.5"
+              >
+                <span class="w-6 h-6 rounded-full bg-accent-red/20 flex items-center justify-center text-xs">😤</span>
+                <span class="hidden sm:inline">{{ displayName }}</span>
+              </NuxtLink>
+            </template>
+            <!-- Guest -->
+            <template v-else>
+              <NuxtLink
+                to="/login"
+                class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block"
+              >
+                Sign In
+              </NuxtLink>
+              <NuxtLink
+                to="/register"
+                class="px-4 py-2 text-sm font-semibold text-white bg-accent-red/10 border border-accent-red/30 rounded-lg hover:bg-accent-red/20 transition-all"
+              >
+                Sign Up
+              </NuxtLink>
+            </template>
           </div>
         </div>
       </div>
@@ -39,12 +76,13 @@
         <div class="flex flex-col md:flex-row items-center justify-between gap-6">
           <div class="flex items-center gap-2">
             <span class="text-xl">🔥</span>
-            <span class="font-display font-bold text-lg">Qatel Mugalim</span>
+            <span class="font-display font-bold text-lg">Tayaq.ai</span>
           </div>
           <p class="text-sm text-gray-500 text-center">
-            © 2025 Qatel Mugalim. Learning English was never this painful — or this effective.
+            © 2025 Tayaq.ai. Learning English was never this painful — or this effective.
           </p>
           <div class="flex gap-4">
+            <NuxtLink to="/leaderboard" class="text-gray-500 hover:text-accent-red transition-colors text-sm">Leaderboard</NuxtLink>
             <a href="#" class="text-gray-500 hover:text-accent-red transition-colors text-sm">Privacy</a>
             <a href="#" class="text-gray-500 hover:text-accent-red transition-colors text-sm">Terms</a>
           </div>
@@ -53,3 +91,11 @@
     </footer>
   </div>
 </template>
+
+<script setup lang="ts">
+const user = useSupabaseUser()
+
+const displayName = computed(() => {
+  return user.value?.user_metadata?.username || user.value?.email?.split('@')[0] || 'Profile'
+})
+</script>
