@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body { margin: 0; padding: 0; background: #1e1e1e; }
+.terminal { font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 15px; line-height: 1.7; color: #d4d4d4; padding: 24px 28px; background: #1e1e1e; width: 720px; white-space: pre; }
+.magenta { color: #c586c0; }
+.yellow { color: #dcdcaa; }
+.green { color: #6a9955; }
+.red { color: #f44747; }
+.white { color: #ffffff; font-weight: bold; }
+.gray { color: #808080; }
+.blue { color: #569cd6; }
+.cyan { color: #4ec9b0; }
+.title-bar { background: #323232; color: #cccccc; padding: 8px 16px; font-family: 'Menlo', monospace; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.dot-red { background: #ff5f56; }
+.dot-yellow { background: #ffbd2e; }
+.dot-green { background: #27c93f; }
+.dots { display: flex; gap: 6px; margin-right: 12px; }
+</style></head><body>
+<div class="title-bar">
+  <div class="dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+  Terminal - npm run console
+</div>
+<div class="terminal"><span class="blue">=========================================
+  LOGIC TEST - Illegal Transitions
+=========================================</span>
+
+<span class="gray">--- Test 1: Skip stage (Created -> Completed) ---</span>
+
+<span class="gray">Choose an option [1-6]:</span> <span class="white">2</span>
+<span class="gray">Enter lesson ID:</span> <span class="white">L-1001</span>
+  Current status: <span class="cyan">Created</span>
+  Next valid stage: <span class="yellow">InProgress</span>
+<span class="gray">Enter target status:</span> <span class="white">Completed</span>
+
+<span class="red">[ERROR] Illegal transition from "Created" to "Completed".
+        Next valid stage is "InProgress".</span>
+
+<span class="gray">--- Test 2: Valid transition (Created -> InProgress) ---</span>
+
+<span class="gray">Enter target status:</span> <span class="white">InProgress</span>
+<span class="green">[TRANSITION] Lesson L-1001 advanced to InProgress!</span>
+
+<span class="gray">--- Test 3: Modify completed lesson ---</span>
+
+  Lesson L-1002 status: <span class="green">Completed</span>
+<span class="gray">Enter target status:</span> <span class="white">InProgress</span>
+
+<span class="red">[ERROR] Lesson is in final stage (Completed)
+        and cannot be modified.</span>
+
+<span class="green">All illegal transitions BLOCKED successfully</span>
+</div>
+</body></html>
