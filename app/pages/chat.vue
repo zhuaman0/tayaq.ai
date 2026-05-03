@@ -8,10 +8,10 @@
             😤
           </div>
           <div>
-            <h1 class="font-display font-bold text-white text-sm sm:text-base">Qatel Mugalim</h1>
-            <p class="text-xs flex items-center gap-1" :class="isLoading ? 'text-accent-amber' : 'text-accent-red'">
-              <span class="w-1.5 h-1.5 rounded-full animate-pulse" :class="isLoading ? 'bg-accent-amber' : 'bg-accent-red'" />
-              {{ isLoading ? 'Typing...' : 'Online · Ready to judge you' }}
+            <h1 class="font-display font-bold text-white text-sm sm:text-base">Tayaq.ai</h1>
+            <p class="text-xs flex items-center gap-1" :class="sttListening ? 'text-green-400' : isLoading ? 'text-accent-amber' : 'text-accent-red'">
+              <span class="w-1.5 h-1.5 rounded-full animate-pulse" :class="sttListening ? 'bg-green-400' : isLoading ? 'bg-accent-amber' : 'bg-accent-red'" />
+              {{ sttListening ? '🎤 Listening...' : isLoading ? 'Typing...' : 'Online · Ready to judge you' }}
             </p>
           </div>
         </div>
@@ -22,6 +22,21 @@
           <span class="px-2 sm:px-3 py-1 rounded-full bg-accent-red/10 border border-accent-red/20 text-xs font-bold" :class="roastColor">
             {{ roastLabel }}
           </span>
+          <!-- TTS Mute Toggle -->
+          <button
+            v-if="ttsSupported"
+            class="tts-mute-btn"
+            :class="{ 'tts-muted': ttsMuted }"
+            :title="ttsMuted ? 'Unmute voice' : 'Mute voice'"
+            @click="ttsToggleMute"
+          >
+            <svg v-if="!ttsMuted" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z" />
+            </svg>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H2v-6h3.586L11 3v18l-5.414-6zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+          </button>
           <NuxtLink
             to="/"
             class="px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm text-gray-400 hover:text-white hover:bg-brand-card transition-all"
@@ -50,8 +65,26 @@
           <!-- Message Bubble -->
           <div class="chat-bubble" :class="msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'">
             <div class="chat-content" v-html="formatMessage(msg.content)" />
-            <div class="chat-time">
-              {{ formatTime(msg.timestamp) }}
+            <div class="chat-footer">
+              <!-- TTS Replay Button (AI messages only) -->
+              <button
+                v-if="msg.role === 'assistant' && msg.content && ttsSupported"
+                class="tts-replay-btn"
+                :class="{ 'tts-active': ttsSpeaking && speakingIndex === i }"
+                :title="ttsSpeaking && speakingIndex === i ? 'Stop speaking' : 'Listen'"
+                @click="handleReplay(msg.content, i)"
+              >
+                <svg v-if="!(ttsSpeaking && speakingIndex === i)" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z" />
+                </svg>
+                <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 005 0" />
+                </svg>
+              </button>
+              <span class="chat-time">
+                {{ formatTime(msg.timestamp) }}
+              </span>
             </div>
           </div>
         </div>
@@ -98,6 +131,18 @@
       </div>
     </div>
 
+    <!-- Recording Overlay — live subtitles -->
+    <div v-if="sttListening" class="recording-overlay">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+        <div class="flex items-center justify-center gap-2 mb-1">
+          <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <span class="text-xs text-green-400 font-semibold tracking-wide uppercase">Recording</span>
+        </div>
+        <p v-if="sttTranscript" class="text-sm text-white font-medium leading-snug">{{ sttTranscript }}</p>
+        <p v-else class="text-sm text-gray-500 italic">Start speaking...</p>
+      </div>
+    </div>
+
     <!-- Input Area -->
     <div class="chat-input-bar">
       <div class="max-w-4xl mx-auto px-4 sm:px-6 py-3">
@@ -106,12 +151,32 @@
             ref="inputRef"
             v-model="inputText"
             type="text"
-            placeholder="Type an English sentence..."
+            :placeholder="sttListening ? 'Listening...' : 'Type or tap 🎤 to speak...'"
             class="chat-input"
-            :disabled="isLoading"
+            :class="{ 'chat-input-recording': sttListening }"
+            :disabled="isLoading || sttListening"
             autocomplete="off"
           />
+          <!-- Mic Button (when input is empty and not loading) -->
           <button
+            v-if="sttSupported && !inputText.trim() && !isLoading"
+            type="button"
+            class="chat-mic-btn"
+            :class="{ 'chat-mic-active': sttListening }"
+            :title="sttListening ? 'Stop listening' : 'Push to talk'"
+            @click="sttToggle"
+          >
+            <svg v-if="!sttListening" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-14 0M12 19v2m0-10V3a2 2 0 00-4 0v8a2 2 0 004 0z" />
+            </svg>
+            <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10l6 4-6 4V10z" />
+            </svg>
+          </button>
+          <!-- Send Button (when there's text or loading) -->
+          <button
+            v-else
             type="submit"
             class="chat-send-btn"
             :disabled="!inputText.trim() || isLoading"
@@ -123,24 +188,35 @@
           </button>
         </form>
         <p class="text-[10px] text-gray-600 mt-1.5 text-center">
-          Press Enter to send · Qatel Mugalim uses GPT-4o
+          Press Enter to send · Tap 🎤 to speak · Tayaq.ai uses GPT-4o
         </p>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 definePageMeta({ layout: 'chat' })
 
 const route = useRoute()
 const userAge = computed(() => Number(route.query.age) || null)
 
 const { messages, isLoading, error, sendMessage, initWelcome } = useChat(userAge)
+const { speak, speakChunk, stop: ttsStop, toggleMute: ttsToggleMute, isSpeaking: ttsSpeaking, isMuted: ttsMuted, isSupported: ttsSupported } = useTTS()
+
+// STT: auto-send transcribed speech
+const handleSpeechResult = (text: string) => {
+  if (text && !isLoading.value) {
+    ttsStop()
+    sendMessage(text, speakChunk)
+  }
+}
+const { toggleListening: sttToggle, isListening: sttListening, isSupported: sttSupported, transcript: sttTranscript } = useSTT(handleSpeechResult)
 
 const inputText = ref('')
-const inputRef = ref(null)
-const messagesContainer = ref(null)
+const inputRef = ref<HTMLInputElement | null>(null)
+const messagesContainer = ref<HTMLDivElement | null>(null)
+const speakingIndex = ref<number | null>(null)
 
 // Roast level display
 const roastLabel = computed(() => {
@@ -181,16 +257,34 @@ const suggestions = [
 
 const handleSend = () => {
   if (!inputText.value.trim() || isLoading.value) return
-  sendMessage(inputText.value)
+  ttsStop()
+  sendMessage(inputText.value, speakChunk)
   inputText.value = ''
 }
 
-const sendSuggestion = (text) => {
-  sendMessage(text)
+const sendSuggestion = (text: string) => {
+  ttsStop()
+  sendMessage(text, speakChunk)
 }
 
+// TTS: Replay a specific AI message
+const handleReplay = (content: string, index: number) => {
+  if (ttsSpeaking.value && speakingIndex.value === index) {
+    ttsStop()
+    speakingIndex.value = null
+  } else {
+    speakingIndex.value = index
+    speak(content)
+  }
+}
+
+// Reset speaking index when speech ends
+watch(ttsSpeaking, (speaking) => {
+  if (!speaking) speakingIndex.value = null
+})
+
 // Format message with basic markdown-like rendering
-const formatMessage = (content) => {
+const formatMessage = (content: string) => {
   if (!content) return ''
   return content
     // Bold: **text**
@@ -206,7 +300,7 @@ const formatMessage = (content) => {
 }
 
 // Format timestamp
-const formatTime = (date) => {
+const formatTime = (date: Date) => {
   return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
@@ -231,7 +325,7 @@ onMounted(() => {
 })
 
 useHead({
-  title: 'Chat — Qatel Mugalim'
+  title: 'Chat — Tayaq.ai'
 })
 </script>
 
@@ -325,15 +419,74 @@ useHead({
   font-family: 'Outfit', sans-serif;
 }
 
+.chat-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+}
+
 .chat-time {
   font-size: 0.625rem;
   color: rgba(156, 163, 175, 0.5);
-  margin-top: 0.375rem;
-  text-align: right;
 }
 
 .chat-bubble-user .chat-time {
   color: rgba(255, 255, 255, 0.5);
+}
+
+/* TTS Controls */
+.tts-mute-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  background: rgba(26, 26, 26, 0.6);
+  border: 1px solid rgba(42, 42, 42, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tts-mute-btn:hover {
+  color: white;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.tts-mute-btn.tts-muted {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.tts-replay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(156, 163, 175, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.tts-replay-btn:hover {
+  color: rgba(156, 163, 175, 0.9);
+}
+
+.tts-replay-btn.tts-active {
+  color: #ef4444;
+  animation: ttsPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes ttsPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* Typing dots */
@@ -459,6 +612,61 @@ useHead({
 .chat-send-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* Mic (PTT) button */
+.chat-mic-btn {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: rgba(26, 26, 26, 0.8);
+  border: 2px solid rgba(74, 222, 128, 0.3);
+  color: #4ade80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.chat-mic-btn:hover {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.5);
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.2);
+}
+
+.chat-mic-btn.chat-mic-active {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  border-color: transparent;
+  color: white;
+  animation: micPulse 1.5s infinite ease-in-out;
+  box-shadow: 0 0 24px rgba(74, 222, 128, 0.4);
+}
+
+@keyframes micPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 24px rgba(74, 222, 128, 0.4);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 36px rgba(74, 222, 128, 0.6);
+  }
+}
+
+.chat-input-recording {
+  border-color: rgba(74, 222, 128, 0.3) !important;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.1) !important;
+}
+
+/* Recording overlay */
+.recording-overlay {
+  flex-shrink: 0;
+  padding: 0.5rem 0;
+  border-top: 1px solid rgba(74, 222, 128, 0.15);
+  background: rgba(74, 222, 128, 0.03);
 }
 
 @keyframes slideUp {

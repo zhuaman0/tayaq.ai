@@ -2,15 +2,19 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxtjs/tailwindcss'],
+  modules: ['@nuxtjs/tailwindcss', '@nuxtjs/supabase'],
   css: ['~/assets/css/main.css'],
+  supabase: {
+    redirect: false, // We handle redirects manually
+  },
   runtimeConfig: {
     // Server-only (never exposed to client)
-    openaiApiKey: import.meta.env.OPENAI_API_KEY,
+    openaiApiKey: '',
+    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
   },
   app: {
     head: {
-      title: 'Qatel Mugalim — Learn English Through Pain 🔥',
+      title: 'Tayaq.ai — Learn English Through Pain 🔥',
       htmlAttrs: { lang: 'en' },
       meta: [
         { charset: 'utf-8' },
