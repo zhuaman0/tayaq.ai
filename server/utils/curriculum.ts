@@ -102,6 +102,72 @@ export function getTopicForLevel(level: Level, topicSlug?: string) {
     const found = config.topics.find((t) => t.slug === topicSlug)
     if (found) return found
   }
-  // Pick the first topic as default starting point
-  return config.topics[0]
+  // Pick the first topic as default starting point. Curriculum config
+  // guarantees at least one topic per level, so the assertion is safe.
+  return config.topics[0]!
+}
+
+const LEVEL_ORDER: Level[] = ['beginner', 'intermediate', 'advanced']
+
+/**
+ * Given a learner's current state, decide what they should work on next.
+ * Picks the first non-mastered topic at their current level. If every
+ * topic at the current level is mastered, bumps to the next level and
+ * resets the topic pointer to the first topic of that level.
+ *
+ * Returns `{ level, topicSlug, levelChanged }` so callers can show the
+ * student a "level up" celebration when relevant.
+ */
+export function getNextLearningTarget(args: {
+  currentLevel: Level
+  masteredTopics: string[]
+}): { level: Level; topicSlug: string; levelChanged: boolean } {
+  const { currentLevel, masteredTopics } = args
+  let level = currentLevel
+  let levelChanged = false
+
+  // Walk up levels until we find one with an unmastered topic
+  while (true) {
+    const topics = CURRICULUM[level].topics
+    const next = topics.find((t) => !masteredTopics.includes(t.slug))
+    if (next) return { level, topicSlug: next.slug, levelChanged }
+
+    // All topics in this level are mastered — try to bump
+    const idx = LEVEL_ORDER.indexOf(level)
+    if (idx === LEVEL_ORDER.length - 1) {
+      // At the top level and everything mastered — loop back to last topic
+      // (advanced learners can re-drill anything)
+      return {
+        level,
+        topicSlug: topics[topics.length - 1]!.slug,
+        levelChanged,
+      }
+    }
+    level = LEVEL_ORDER[idx + 1]!
+    levelChanged = true
+  }
+}
+
+/**
+ * Compute updated progress after AI marks a topic mastered. Handles the
+ * two side-effects: (1) add slug to mastered list (idempotent),
+ * (2) advance current_topic to next non-mastered, possibly bumping level.
+ */
+export function applyMastery(args: {
+  level: Level
+  masteredTopics: string[]
+  masteredSlug: string
+}): { level: Level; currentTopicSlug: string; masteredTopics: string[]; levelChanged: boolean } {
+  const { level, masteredTopics, masteredSlug } = args
+  const updatedMastered = masteredTopics.includes(masteredSlug)
+    ? masteredTopics
+    : [...masteredTopics, masteredSlug]
+
+  const next = getNextLearningTarget({ currentLevel: level, masteredTopics: updatedMastered })
+  return {
+    level: next.level,
+    currentTopicSlug: next.topicSlug,
+    masteredTopics: updatedMastered,
+    levelChanged: next.levelChanged,
+  }
 }
