@@ -14,7 +14,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     // Server-only (never exposed to client)
-    openaiApiKey: '',
+    openaiApiKey: process.env.OPENAI_API_KEY || '',
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
   },

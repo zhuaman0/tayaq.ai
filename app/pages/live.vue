@@ -97,6 +97,7 @@ const userAge = computed(() => Number(route.query.age) || null)
 const ageRef = computed(() => userAge.value)
 const {
   isConnected,
+  isConnecting,
   isListening,
   isSpeaking,
   userSubtitle,
@@ -105,7 +106,7 @@ const {
   connect,
   startListening,
   stopListening,
-} = useGeminiLive({ age: ageRef })
+} = useRealtimeVoice({ age: ageRef })
 
 // Status display
 const statusText = computed(() => {
@@ -113,6 +114,7 @@ const statusText = computed(() => {
   if (isListening.value) return 'Listening to you...'
   if (isSpeaking.value) return 'Қатал Мұғалім is speaking...'
   if (isConnected.value) return 'Connected · ready'
+  if (isConnecting.value) return 'Connecting...'
   return 'Click the button to start'
 })
 
@@ -121,6 +123,7 @@ const statusColor = computed(() => {
   if (isListening.value) return 'text-accent-amber'
   if (isSpeaking.value) return 'text-accent-flame'
   if (isConnected.value) return 'text-green-400'
+  if (isConnecting.value) return 'text-yellow-400'
   return 'text-gray-500'
 })
 
@@ -129,6 +132,7 @@ const statusDotColor = computed(() => {
   if (isListening.value) return 'bg-accent-amber'
   if (isSpeaking.value) return 'bg-accent-flame'
   if (isConnected.value) return 'bg-green-400'
+  if (isConnecting.value) return 'bg-yellow-400'
   return 'bg-gray-500'
 })
 
