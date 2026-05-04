@@ -26,3 +26,21 @@ logs
 # Console app runtime files
 console-app/db.json
 console-app/log.txt
+
+# Claude Code local config and memory compiler scratch
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+.memory-compiler/
+.playwright-mcp/
+
+# Python caches (for hook scripts)
+__pycache__/
+*.pyc
+
+# Supabase local temp
+supabase/.temp/
+
+# Test artifacts
+site-home.png
+test.txt

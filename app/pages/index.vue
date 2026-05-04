@@ -34,17 +34,26 @@
           <span class="text-white font-semibold">perfect English</span>. You'll never forget a lesson again.
         </p>
 
-        <!-- CTA Button -->
-        <div class="animate-slide-up" style="animation-delay: 0.45s">
+        <!-- CTA Buttons -->
+        <div class="animate-slide-up flex flex-col sm:flex-row items-center justify-center gap-4" style="animation-delay: 0.45s">
           <button
             id="hero-start-btn"
             class="btn-primary text-xl px-10 py-5 animate-glow"
             @click="openModal"
           >
-            <span>🔥 Start Suffering (Learning)</span>
+            <span>🔥 Start Suffering (Text)</span>
           </button>
-          <p class="mt-4 text-sm text-gray-600">Free · No credit card · Just pain and progress</p>
+          <button
+            id="hero-live-btn"
+            class="px-10 py-5 font-display font-bold text-xl text-white border-2 border-accent-amber/60 rounded-xl hover:bg-accent-amber/10 hover:border-accent-amber transition-all"
+            @click="openModalLive"
+          >
+            <span>🎤 Talk to Teacher (Live)</span>
+          </button>
         </div>
+        <p class="mt-4 text-sm text-gray-600 animate-slide-up" style="animation-delay: 0.5s">
+          Free · No credit card · Just pain and progress
+        </p>
 
         <!-- Demo Roast Preview -->
         <div class="mt-16 max-w-2xl mx-auto animate-slide-up" style="animation-delay: 0.6s">
@@ -336,8 +345,16 @@ const router = useRouter()
 const isModalOpen = ref(false)
 const userAge = ref(null)
 const ageError = ref('')
+const targetMode = ref('chat') // 'chat' or 'live'
 
 const openModal = () => {
+  targetMode.value = 'chat'
+  isModalOpen.value = true
+  document.body.style.overflow = 'hidden'
+}
+
+const openModalLive = () => {
+  targetMode.value = 'live'
   isModalOpen.value = true
   document.body.style.overflow = 'hidden'
 }
@@ -396,11 +413,12 @@ const intensityBarColor = computed(() => {
   return 'bg-red-500'
 })
 
-// Navigate to chat
+// Navigate to chat or live based on selected mode
 const startLearning = () => {
   if (!userAge.value || ageError.value) return
   closeModal()
-  router.push({ path: '/chat', query: { age: userAge.value } })
+  const path = targetMode.value === 'live' ? '/live' : '/chat'
+  router.push({ path, query: { age: userAge.value } })
 }
 
 // SEO

@@ -12,6 +12,12 @@
           </NuxtLink>
           <div class="flex items-center gap-4 sm:gap-6">
             <NuxtLink
+              to="/live"
+              class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block"
+            >
+              🎤 Live
+            </NuxtLink>
+            <NuxtLink
               to="/vocab"
               class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block"
             >
