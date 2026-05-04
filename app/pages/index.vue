@@ -37,22 +37,22 @@
         <!-- CTA Buttons -->
         <div class="animate-slide-up flex flex-col sm:flex-row items-center justify-center gap-4" style="animation-delay: 0.45s">
           <button
-            id="hero-start-btn"
-            class="btn-primary text-xl px-10 py-5 animate-glow"
-            @click="openModal"
-          >
-            <span>🔥 Start Suffering (Text)</span>
-          </button>
-          <button
             id="hero-live-btn"
-            class="px-10 py-5 font-display font-bold text-xl text-white border-2 border-accent-amber/60 rounded-xl hover:bg-accent-amber/10 hover:border-accent-amber transition-all"
+            class="btn-primary text-xl px-10 py-5 animate-glow"
             @click="openModalLive"
           >
-            <span>🎤 Talk to Teacher (Live)</span>
+            <span>🎤 Practice Speaking (Live)</span>
+          </button>
+          <button
+            id="hero-start-btn"
+            class="px-10 py-5 font-display font-bold text-xl text-white border-2 border-accent-amber/60 rounded-xl hover:bg-accent-amber/10 hover:border-accent-amber transition-all"
+            @click="openModal"
+          >
+            <span>✍️ Practice Writing (Chat)</span>
           </button>
         </div>
         <p class="mt-4 text-sm text-gray-600 animate-slide-up" style="animation-delay: 0.5s">
-          Free · No credit card · Just pain and progress
+          Speaking + Listening · Writing + Reading · Both modes track your level
         </p>
 
         <!-- Demo Roast Preview -->
@@ -243,7 +243,7 @@
         <button
           id="cta-start-btn"
           class="btn-primary text-xl px-10 py-5"
-          @click="openModal"
+          @click="openModalLive"
         >
           <span>💀 I'm Ready. Roast Me.</span>
         </button>
@@ -303,6 +303,27 @@
               </Transition>
             </div>
 
+            <!-- Level Selector -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-400 mb-2">Your English Level</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  v-for="opt in levelOptions"
+                  :key="opt.value"
+                  type="button"
+                  class="px-3 py-3 rounded-xl border text-sm font-display font-bold transition-all"
+                  :class="userLevel === opt.value
+                    ? 'border-accent-red bg-accent-red/10 text-white'
+                    : 'border-brand-border bg-brand-black/40 text-gray-400 hover:border-accent-red/50 hover:text-white'"
+                  @click="userLevel = opt.value"
+                >
+                  <div>{{ opt.emoji }}</div>
+                  <div class="mt-1">{{ opt.label }}</div>
+                </button>
+              </div>
+              <p v-if="userLevel" class="mt-2 text-xs text-gray-500">{{ levelDescription }}</p>
+            </div>
+
             <!-- Roast intensity preview -->
             <div v-if="userAge && !ageError" class="mb-6 p-3 rounded-lg bg-brand-black/50 border border-brand-border/30">
               <div class="flex items-center justify-between text-sm mb-2">
@@ -322,10 +343,10 @@
             <button
               id="start-learning-btn"
               class="w-full btn-primary text-lg py-4"
-              :disabled="!userAge || !!ageError"
+              :disabled="!userAge || !!ageError || !userLevel"
               @click="startLearning"
             >
-              <span>🔥 Start Suffering (Learning)</span>
+              <span>{{ targetMode === 'live' ? '🎤 Start Speaking' : '✍️ Start Writing' }}</span>
             </button>
 
             <p class="mt-4 text-xs text-gray-600 text-center">
@@ -344,8 +365,22 @@ const router = useRouter()
 // Modal state
 const isModalOpen = ref(false)
 const userAge = ref(null)
+const userLevel = ref('intermediate')
 const ageError = ref('')
 const targetMode = ref('chat') // 'chat' or 'live'
+
+const levelOptions = [
+  { value: 'beginner', label: 'Beginner', emoji: '🐣' },
+  { value: 'intermediate', label: 'Intermediate', emoji: '🌱' },
+  { value: 'advanced', label: 'Advanced', emoji: '🔥' },
+]
+
+const levelDescription = computed(() => {
+  if (userLevel.value === 'beginner') return 'Just starting — basics, greetings, simple sentences. Gentle mode.'
+  if (userLevel.value === 'intermediate') return 'Can hold conversation — past tenses, modals, real-world topics.'
+  if (userLevel.value === 'advanced') return 'Fluent — idioms, phrasal verbs, debate. Full intensity.'
+  return ''
+})
 
 const openModal = () => {
   targetMode.value = 'chat'
@@ -415,10 +450,10 @@ const intensityBarColor = computed(() => {
 
 // Navigate to chat or live based on selected mode
 const startLearning = () => {
-  if (!userAge.value || ageError.value) return
+  if (!userAge.value || ageError.value || !userLevel.value) return
   closeModal()
   const path = targetMode.value === 'live' ? '/live' : '/chat'
-  router.push({ path, query: { age: userAge.value } })
+  router.push({ path, query: { age: userAge.value, level: userLevel.value } })
 }
 
 // SEO

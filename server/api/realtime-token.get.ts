@@ -20,7 +20,9 @@ export default defineEventHandler(async (event) => {
 
   const query = getQuery(event)
   const age = Math.max(10, Math.min(99, Number(query.age) || 20))
-  const instructions = buildVoicePersonaPrompt({ age })
+  const level = typeof query.level === 'string' ? query.level : undefined
+  const topicSlug = typeof query.topic === 'string' ? query.topic : undefined
+  const instructions = buildVoicePersonaPrompt({ age, level, topicSlug })
 
   const res = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
     method: 'POST',
@@ -68,5 +70,7 @@ export default defineEventHandler(async (event) => {
     token,
     model: REALTIME_MODEL,
     age,
+    level: level || 'intermediate',
+    topic: topicSlug || null,
   }
 })

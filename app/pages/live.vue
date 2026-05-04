@@ -14,8 +14,14 @@
           </div>
         </div>
         <div class="flex items-center gap-2 sm:gap-3">
+          <span v-if="userLevel" class="px-2 sm:px-3 py-1 rounded-full bg-brand-card border border-brand-border text-xs text-gray-400">
+            Level: <span class="text-white font-bold capitalize">{{ userLevel }}</span>
+          </span>
           <span v-if="userAge" class="px-2 sm:px-3 py-1 rounded-full bg-brand-card border border-brand-border text-xs text-gray-400">
             Age: <span class="text-white font-bold">{{ userAge }}</span>
+          </span>
+          <span v-if="isConnected" class="px-2 sm:px-3 py-1 rounded-full bg-brand-card border border-brand-border text-xs font-mono" :class="timeLeftColor">
+            {{ timeLeft }}
           </span>
           <NuxtLink
             to="/"
@@ -32,10 +38,7 @@
       <div class="max-w-3xl w-full px-6 text-center">
         <!-- AI subtitle (large, central) -->
         <div v-if="aiSubtitle" class="ai-subtitle font-display">
-          <template v-for="(segment, i) in parsedAiSubtitle" :key="i">
-            <span v-if="segment.kind === 'kazakh'" class="kazakh-roast">{{ segment.text }}</span>
-            <span v-else>{{ segment.text }}</span>
-          </template>
+          {{ aiSubtitle }}
         </div>
 
         <!-- Idle hint -->
@@ -93,8 +96,14 @@ definePageMeta({ layout: 'chat' })
 
 const route = useRoute()
 const userAge = computed(() => Number(route.query.age) || null)
+const userLevel = computed(() => {
+  const lvl = String(route.query.level || '').toLowerCase()
+  return ['beginner', 'intermediate', 'advanced'].includes(lvl) ? lvl : 'intermediate'
+})
 
 const ageRef = computed(() => userAge.value)
+const levelRef = computed(() => userLevel.value)
+const topicRef = computed(() => (typeof route.query.topic === 'string' ? route.query.topic : null))
 const {
   isConnected,
   isConnecting,
@@ -106,7 +115,48 @@ const {
   connect,
   startListening,
   stopListening,
-} = useRealtimeVoice({ age: ageRef })
+  disconnect,
+} = useRealtimeVoice({ age: ageRef, level: levelRef, topic: topicRef })
+
+// Cost protection: hard 5-minute session cap
+const MAX_SESSION_SECONDS = 5 * 60
+const sessionSecondsLeft = ref(MAX_SESSION_SECONDS)
+let sessionTimerId: ReturnType<typeof setInterval> | null = null
+
+watch(isConnected, (connected) => {
+  if (connected && !sessionTimerId) {
+    sessionSecondsLeft.value = MAX_SESSION_SECONDS
+    sessionTimerId = setInterval(() => {
+      sessionSecondsLeft.value -= 1
+      if (sessionSecondsLeft.value <= 0) {
+        if (sessionTimerId) clearInterval(sessionTimerId)
+        sessionTimerId = null
+        disconnect()
+      }
+    }, 1000)
+  }
+  if (!connected && sessionTimerId) {
+    clearInterval(sessionTimerId)
+    sessionTimerId = null
+  }
+})
+
+onUnmounted(() => {
+  if (sessionTimerId) clearInterval(sessionTimerId)
+})
+
+const timeLeft = computed(() => {
+  const s = Math.max(0, sessionSecondsLeft.value)
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}:${r.toString().padStart(2, '0')}`
+})
+
+const timeLeftColor = computed(() => {
+  if (sessionSecondsLeft.value <= 30) return 'text-accent-red'
+  if (sessionSecondsLeft.value <= 60) return 'text-accent-amber'
+  return 'text-gray-400'
+})
 
 // Status display
 const statusText = computed(() => {
@@ -134,29 +184,6 @@ const statusDotColor = computed(() => {
   if (isConnected.value) return 'bg-green-400'
   if (isConnecting.value) return 'bg-yellow-400'
   return 'bg-gray-500'
-})
-
-// Parse [KZ:"..."] markers in AI subtitle for visual styling
-type Segment = { kind: 'english' | 'kazakh'; text: string }
-
-const parsedAiSubtitle = computed<Segment[]>(() => {
-  const text = aiSubtitle.value
-  if (!text) return []
-  const re = /\[KZ:"([^"]+)"\]/g
-  const segments: Segment[] = []
-  let last = 0
-  let m
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) {
-      segments.push({ kind: 'english', text: text.slice(last, m.index) })
-    }
-    segments.push({ kind: 'kazakh', text: m[1] })
-    last = m.index + m[0].length
-  }
-  if (last < text.length) {
-    segments.push({ kind: 'english', text: text.slice(last) })
-  }
-  return segments
 })
 
 // Push-to-talk handlers (must be a regular function for click/touch)
@@ -211,17 +238,6 @@ useHead({
   color: white;
   font-weight: 700;
   text-wrap: balance;
-}
-
-.kazakh-roast {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  margin: 0 0.125rem;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(245, 158, 11, 0.15));
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 0.375rem;
-  color: #fca5a5;
-  font-style: italic;
 }
 
 .idle-hint {

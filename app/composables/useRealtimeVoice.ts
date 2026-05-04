@@ -17,6 +17,8 @@
 
 interface RealtimeVoiceOptions {
   age: Ref<number | null>
+  level?: Ref<string | null>
+  topic?: Ref<string | null>
 }
 
 export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
@@ -97,8 +99,13 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
     try {
       // 1. Mint ephemeral token from our server
       const age = opts.age.value ?? 20
+      const level = opts.level?.value ?? ''
+      const topic = opts.topic?.value ?? ''
+      const params = new URLSearchParams({ age: String(age) })
+      if (level) params.set('level', level)
+      if (topic) params.set('topic', topic)
       const tokenRes = await $fetch<{ token: string; model: string }>(
-        `/api/realtime-token?age=${age}`
+        `/api/realtime-token?${params.toString()}`
       )
 
       // 2. Set up peer connection + audio element for AI playback
