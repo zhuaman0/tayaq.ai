@@ -4,12 +4,18 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss', '@nuxtjs/supabase'],
   css: ['~/assets/css/main.css'],
+  nitro: {
+    experimental: {
+      websocket: true,
+    },
+  },
   supabase: {
     redirect: false, // We handle redirects manually
   },
   runtimeConfig: {
     // Server-only (never exposed to client)
-    openaiApiKey: '',
+    openaiApiKey: process.env.OPENAI_API_KEY || '',
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
   },
   app: {

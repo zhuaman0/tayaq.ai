@@ -7,7 +7,7 @@ interface PersonaConfig {
   age: number
 }
 
-function getRoastIntensity(age: number): { level: string; description: string } {
+export function getRoastIntensity(age: number): { level: string; description: string } {
   if (age <= 15) {
     return {
       level: 'MILD',

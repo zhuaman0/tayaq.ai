@@ -26,3 +26,28 @@ logs
 # Console app runtime files
 console-app/db.json
 console-app/log.txt
+
+# Claude Code local config and memory compiler scratch
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+.memory-compiler/
+.playwright-mcp/
+
+# Python caches (for hook scripts)
+__pycache__/
+*.pyc
+
+# Supabase local temp
+supabase/.temp/
+
+# Test artifacts
+site-home.png
+test.txt
+
+# Gemini Live experiment (kept locally for reference, replaced by OpenAI Realtime)
+server/api/gemini-ws.ts
+app/composables/useGeminiLive.ts
+app/composables/useAudioCapture.ts
+app/composables/useAudioPlayback.ts
+public/audio-worklet/
