@@ -1,4 +1,5 @@
 import { YoutubeTranscript } from 'youtube-transcript'
+import { Supadata } from '@supadata/js'
 import OpenAI from 'openai'
 
 interface VocabWord {
@@ -8,6 +9,11 @@ interface VocabWord {
   translation: string
 }
 
+interface TranscriptChunk {
+  text: string
+  offset: number // seconds
+}
+
 function extractVideoId(url: string): string | null {
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/,
@@ -15,9 +21,67 @@ function extractVideoId(url: string): string | null {
   ]
   for (const re of patterns) {
     const m = url.match(re)
-    if (m) return m[1]
+    if (m) return m[1] ?? null
   }
   return null
+}
+
+/**
+ * Fetch transcript via Supadata (works on Vercel — youtube-transcript does not).
+ * Returns null if the API key is missing or Supadata can't find a transcript;
+ * caller falls back to youtube-transcript (works locally on residential IPs).
+ */
+async function fetchViaSupadata(videoId: string, apiKey: string): Promise<TranscriptChunk[] | null> {
+  try {
+    const supadata = new Supadata({ apiKey })
+    const result = await supadata.youtube.transcript({
+      videoId,
+      lang: 'en',
+      text: false,
+    }) as { content?: Array<{ text: string; offset: number; duration?: number }> }
+
+    if (!result?.content || !Array.isArray(result.content)) return null
+    return result.content.map((c) => ({
+      text: c.text,
+      offset: Math.floor((c.offset ?? 0) / 1000),
+    }))
+  } catch (err: any) {
+    const status = err?.statusCode ?? err?.status
+    // 404 = no captions, 403 = restricted — bubble up the original 422 message
+    if (status === 404) return null
+    if (status === 403) {
+      throw createError({
+        statusCode: 422,
+        statusMessage: 'This video is private, age-restricted, or region-locked.',
+      })
+    }
+    console.error('[supadata] transcript error:', err?.message || err)
+    return null
+  }
+}
+
+/**
+ * Direct YouTube scrape via `youtube-transcript`. Works on residential IPs
+ * (local dev), blocked on Vercel — use Supadata in production.
+ */
+async function fetchViaScraper(videoId: string): Promise<TranscriptChunk[] | null> {
+  try {
+    const raw = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' })
+    return raw.map((t) => ({
+      text: t.text.replace(/\[.*?\]/g, '').trim(),
+      offset: Math.floor(t.offset / 1000),
+    })).filter((t) => t.text)
+  } catch {
+    try {
+      const raw = await YoutubeTranscript.fetchTranscript(videoId)
+      return raw.map((t) => ({
+        text: t.text.replace(/\[.*?\]/g, '').trim(),
+        offset: Math.floor(t.offset / 1000),
+      })).filter((t) => t.text)
+    } catch {
+      return null
+    }
+  }
 }
 
 export default defineEventHandler(async (event) => {
@@ -33,35 +97,32 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid YouTube URL' })
   }
 
-  // Fetch transcript
-  let rawTranscript: { text: string; offset: number }[] = []
-  try {
-    rawTranscript = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' })
-  } catch {
-    try {
-      // Fallback: try without language constraint
-      rawTranscript = await YoutubeTranscript.fetchTranscript(videoId)
-    } catch (e: any) {
-      throw createError({
-        statusCode: 422,
-        statusMessage: 'Could not fetch transcript. Make sure the video has English subtitles/captions enabled.',
-      })
-    }
+  // Strategy:
+  // 1. If Supadata key configured → use Supadata first (works on Vercel)
+  // 2. Otherwise (or if Supadata returns null) → fall back to youtube-transcript scraper
+  //    (works on residential IPs but blocked on Vercel datacenter ranges)
+  let segments: TranscriptChunk[] | null = null
+
+  if (config.supadataApiKey) {
+    segments = await fetchViaSupadata(videoId, config.supadataApiKey)
   }
 
-  if (!rawTranscript.length) {
-    throw createError({ statusCode: 422, statusMessage: 'This video has no transcript available.' })
+  if (!segments) {
+    segments = await fetchViaScraper(videoId)
+  }
+
+  if (!segments || !segments.length) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: config.supadataApiKey
+        ? 'Could not fetch transcript. The video may not have English captions, or it may be private/restricted.'
+        : 'Could not fetch transcript. Server is missing SUPADATA_API_KEY — production scrape requires it. Locally, the video may not have English subtitles enabled.',
+    })
   }
 
   // Build full transcript text and timed segments
-  const fullText = rawTranscript.map(t => t.text.replace(/\[.*?\]/g, '').trim()).filter(Boolean).join(' ')
-  const segments = rawTranscript.map(t => ({
-    text: t.text.replace(/\[.*?\]/g, '').trim(),
-    offset: Math.floor(t.offset / 1000), // seconds
-  })).filter(t => t.text)
-
-  // Limit to ~4000 chars for GPT to avoid token overflow
-  const truncated = fullText.slice(0, 4000)
+  const fullText = segments.map((t) => t.text).filter(Boolean).join(' ')
+  const truncated = fullText.slice(0, 4000) // cap for GPT prompt
 
   // Use GPT to extract key vocabulary
   if (!config.openaiApiKey) {

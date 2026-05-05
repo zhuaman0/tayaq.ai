@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@nuxtjs/supabase": "^2.0.4",
+    "@supadata/js": "^1.4.0",
     "@types/leaflet": "^1.9.21",
     "@types/ws": "^8.18.1",
     "leaflet": "^1.9.4",
