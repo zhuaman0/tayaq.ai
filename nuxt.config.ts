@@ -10,7 +10,9 @@ export default defineNuxtConfig({
     },
   },
   supabase: {
-    redirect: false, // We handle redirects manually
+    url: process.env.SUPABASE_URL,
+    key: process.env.SUPABASE_KEY,
+    redirect: false,
   },
   runtimeConfig: {
     // Server-only (never exposed to client)

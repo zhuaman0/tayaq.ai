@@ -18,10 +18,22 @@
               🎤 Live
             </NuxtLink>
             <NuxtLink
+              to="/grammar"
+              class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block"
+            >
+              📝 Grammar
+            </NuxtLink>
+            <NuxtLink
+              to="/challenge"
+              class="text-sm font-semibold text-accent-amber hover:text-white transition-colors hidden sm:block"
+            >
+              ⚡ Challenge
+            </NuxtLink>
+            <NuxtLink
               to="/vocab"
               class="text-sm text-gray-400 hover:text-white transition-colors hidden sm:block"
             >
-              📚 Vocabulary
+              📚 Vocab
             </NuxtLink>
             <NuxtLink
               to="/leaderboard"

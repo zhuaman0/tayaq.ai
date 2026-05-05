@@ -86,6 +86,13 @@
       <!-- Loading state -->
       <div v-if="loading" class="text-center py-10 text-gray-500">Loading your words...</div>
 
+      <!-- Error state -->
+      <div v-else-if="fetchError" class="glass-card p-5 text-center py-10">
+        <p class="text-accent-red font-semibold mb-1">⚠ Failed to load words</p>
+        <p class="text-gray-500 text-sm">{{ fetchError }}</p>
+        <button class="mt-4 px-4 py-2 text-sm text-accent-red border border-accent-red/30 rounded-xl hover:bg-accent-red/10 transition-all" @click="fetchWords">Retry</button>
+      </div>
+
       <!-- Empty state -->
       <div v-else-if="words.length === 0" class="text-center py-16">
         <p class="text-4xl mb-3">📭</p>
@@ -104,6 +111,13 @@
             <div class="flex items-baseline gap-2 flex-wrap">
               <span class="font-display font-bold text-white text-lg">{{ word.word }}</span>
               <span v-if="word.translation" class="text-accent-amber text-sm font-medium">· {{ word.translation }}</span>
+              <span
+                v-if="word.collection_id"
+                class="text-xs px-2 py-0.5 rounded-full bg-brand-card border border-brand-border/30 text-gray-400"
+              >
+                {{ collections.find(c => c.id === word.collection_id)?.emoji }}
+                {{ collections.find(c => c.id === word.collection_id)?.name }}
+              </span>
             </div>
             <p v-if="word.definition" class="text-gray-400 text-sm mt-0.5 leading-snug">{{ word.definition }}</p>
             <p v-if="word.example" class="text-gray-600 text-xs mt-1 italic">{{ word.example }}</p>
@@ -301,6 +315,259 @@
       </div>
     </div>
 
+    <!-- ===== COLLECTIONS TAB ===== -->
+    <div v-else-if="activeTab === 'collections'" class="px-4 sm:px-6 max-w-4xl mx-auto space-y-5">
+
+      <!-- Inside a specific collection -->
+      <template v-if="activeCollection">
+        <!-- Header -->
+        <div class="flex items-center gap-3">
+          <button
+            class="text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1"
+            @click="activeCollection = null; showAddWords = false"
+          >← Back</button>
+          <span class="text-3xl">{{ activeCollection.emoji }}</span>
+          <div class="flex-1">
+            <h2 class="font-display font-bold text-xl text-white">{{ activeCollection.name }}</h2>
+            <p class="text-gray-500 text-xs">{{ collectionWords.length }} words</p>
+          </div>
+        </div>
+
+        <!-- Add words panel -->
+        <div class="glass-card p-4">
+          <button
+            class="flex items-center gap-2 text-accent-red text-sm font-semibold hover:text-accent-flame transition-colors"
+            @click="showAddWords = !showAddWords; assignError = ''"
+          >
+            <span class="text-xs">{{ showAddWords ? '▲' : '▼' }}</span>
+            Add Words from My Vocabulary
+          </button>
+          <div v-if="showAddWords" class="mt-4 space-y-2 max-h-64 overflow-y-auto">
+            <p v-if="assignError" class="text-accent-red text-xs px-1 pb-1">⚠ {{ assignError }}</p>
+            <div v-if="wordsNotInCollection.length === 0" class="text-gray-500 text-sm text-center py-4">
+              All your words are already in this collection.
+            </div>
+            <div
+              v-for="w in wordsNotInCollection"
+              :key="w.id"
+              class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-brand-black/40 border border-brand-border/20"
+            >
+              <div class="min-w-0">
+                <span class="text-white font-semibold text-sm">{{ w.word }}</span>
+                <span v-if="w.translation" class="text-accent-amber text-xs ml-2">· {{ w.translation }}</span>
+                <span v-if="w.collection_id" class="text-gray-600 text-xs ml-2">
+                  (from {{ collections.find(c => c.id === w.collection_id)?.name }})
+                </span>
+              </div>
+              <button
+                class="flex-shrink-0 text-xs px-3 py-1 rounded-lg bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20 transition-all font-semibold disabled:opacity-40"
+                :disabled="assigningWordId === w.id"
+                @click="assignWord(w.id, activeCollection!.id)"
+              >{{ assigningWordId === w.id ? '...' : '+ Add' }}</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Words in this collection -->
+        <div class="space-y-3">
+          <div v-if="collectionWords.length === 0" class="text-center py-12">
+            <p class="text-3xl mb-2">📭</p>
+            <p class="text-gray-400 text-sm">No words yet — click "Add Words" above to fill this collection!</p>
+          </div>
+          <div
+            v-for="word in collectionWords"
+            :key="word.id"
+            class="glass-card p-4 flex items-start justify-between gap-3 group"
+          >
+            <div class="flex-1 min-w-0">
+              <div class="flex items-baseline gap-2 flex-wrap">
+                <span class="font-display font-bold text-white text-lg">{{ word.word }}</span>
+                <span v-if="word.translation" class="text-accent-amber text-sm font-medium">· {{ word.translation }}</span>
+              </div>
+              <p v-if="word.definition" class="text-gray-400 text-sm mt-0.5 leading-snug">{{ word.definition }}</p>
+              <p v-if="word.example" class="text-gray-600 text-xs mt-1 italic">"{{ word.example }}"</p>
+            </div>
+            <button
+              class="text-gray-700 hover:text-accent-red transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 disabled:opacity-30"
+              title="Remove from collection"
+              :disabled="assigningWordId === word.id"
+              @click="assignWord(word.id, null)"
+            >{{ assigningWordId === word.id ? '…' : '✕' }}</button>
+          </div>
+        </div>
+      </template>
+
+      <!-- Collection grid -->
+      <template v-else>
+        <!-- New collection form -->
+        <div class="glass-card p-5">
+          <h2 class="font-display font-bold text-white mb-4 flex items-center gap-2">
+            <span>🗂️</span> Create New Collection
+          </h2>
+          <!-- Emoji picker -->
+          <div class="flex flex-wrap gap-2 mb-4">
+            <button
+              v-for="em in collectionEmojis"
+              :key="em"
+              class="w-9 h-9 rounded-lg text-xl flex items-center justify-center transition-all border"
+              :class="newColEmoji === em
+                ? 'border-accent-red bg-accent-red/10 scale-110'
+                : 'border-brand-border/30 bg-brand-black/40 hover:border-accent-red/30'"
+              @click="newColEmoji = em"
+            >{{ em }}</button>
+          </div>
+          <!-- Name input -->
+          <div class="flex gap-2">
+            <input
+              v-model="newColName"
+              type="text"
+              placeholder='Collection name (e.g. Kitchen, Travel, Business...)'
+              class="flex-1 px-4 py-2.5 bg-brand-black border border-brand-border/50 rounded-xl text-white placeholder-gray-600 text-sm outline-none focus:border-accent-red/50 transition-colors"
+              @keydown.enter="createCollection"
+            />
+            <button
+              class="px-4 py-2.5 bg-gradient-to-r from-accent-red to-accent-flame text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-40 whitespace-nowrap"
+              :disabled="!newColName.trim() || creatingCol"
+              @click="createCollection"
+            >{{ creatingCol ? '...' : '+ Create' }}</button>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-if="collections.length === 0" class="text-center py-16">
+          <p class="text-5xl mb-4">🗂️</p>
+          <p class="text-gray-400 font-medium">No collections yet.</p>
+          <p class="text-gray-600 text-sm mt-1">Create your first one above — try "🍳 Kitchen", "✈️ Travel", or "💼 Business"!</p>
+        </div>
+
+        <!-- Collection boxes grid -->
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div
+            v-for="col in collections"
+            :key="col.id"
+            class="relative glass-card-hover p-5 cursor-pointer text-center group"
+            @click="openCollection(col)"
+          >
+            <!-- Delete button -->
+            <button
+              class="absolute top-2 right-2 w-6 h-6 rounded-md flex items-center justify-center text-gray-700 hover:text-accent-red hover:bg-accent-red/10 opacity-0 group-hover:opacity-100 transition-all text-xs"
+              title="Delete collection"
+              @click.stop="deleteCollection(col.id)"
+            >✕</button>
+            <!-- Emoji -->
+            <div class="text-5xl mb-3">{{ col.emoji }}</div>
+            <!-- Name -->
+            <h3 class="font-display font-bold text-white text-sm leading-tight mb-1 truncate">{{ col.name }}</h3>
+            <!-- Word count -->
+            <p class="text-gray-500 text-xs">{{ wordCountForCollection(col.id) }} word{{ wordCountForCollection(col.id) !== 1 ? 's' : '' }}</p>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- ===== YOUTUBE TAB ===== -->
+    <div v-else-if="activeTab === 'youtube'" class="px-4 sm:px-6 max-w-4xl mx-auto space-y-6">
+      <!-- URL Input -->
+      <div class="glass-card p-5">
+        <h2 class="font-display font-bold text-white mb-1 flex items-center gap-2">
+          🎥 Learn from YouTube
+        </h2>
+        <p class="text-gray-500 text-sm mb-4">Paste any YouTube video with English subtitles — we'll extract the key vocabulary for you.</p>
+        <div class="flex gap-2">
+          <input
+            v-model="ytUrl"
+            type="url"
+            placeholder="https://www.youtube.com/watch?v=..."
+            class="flex-1 px-4 py-2.5 bg-brand-black border border-brand-border/50 rounded-xl text-white placeholder-gray-600 text-sm outline-none focus:border-accent-red/50 transition-colors"
+            @keydown.enter="analyzeYoutube"
+          />
+          <button
+            class="px-5 py-2.5 bg-gradient-to-r from-accent-red to-accent-flame text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-40 whitespace-nowrap"
+            :disabled="!ytUrl.trim() || ytLoading"
+            @click="analyzeYoutube"
+          >
+            {{ ytLoading ? '⏳ Analyzing...' : '🔍 Analyze' }}
+          </button>
+        </div>
+        <p v-if="ytError" class="mt-3 text-sm text-accent-red">{{ ytError }}</p>
+      </div>
+
+      <!-- Result -->
+      <div v-if="ytResult">
+        <!-- Video embed + title -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+          <div class="rounded-xl overflow-hidden border border-brand-border/30 aspect-video">
+            <iframe
+              :src="`https://www.youtube.com/embed/${ytResult.videoId}`"
+              class="w-full h-full"
+              frameborder="0"
+              allowfullscreen
+            />
+          </div>
+          <div class="flex flex-col justify-between">
+            <div>
+              <p class="text-xs uppercase tracking-widest text-gray-600 mb-1">Video topic</p>
+              <p class="text-white font-bold text-lg leading-snug mb-3">{{ ytResult.titleGuess }}</p>
+              <p class="text-gray-500 text-sm">{{ ytResult.words.length }} key words extracted · Click any word to add to your vocabulary</p>
+            </div>
+            <button
+              class="mt-4 px-4 py-2.5 bg-accent-red/10 border border-accent-red/30 text-accent-red rounded-xl text-sm font-semibold hover:bg-accent-red/20 transition-all self-start"
+              @click="addAllYtWords"
+            >
+              ＋ Add All Words to My Vocabulary
+            </button>
+          </div>
+        </div>
+
+        <!-- Extracted vocabulary words -->
+        <div class="glass-card p-5">
+          <h3 class="font-display font-bold text-white mb-4">Key Vocabulary ({{ ytResult.words.length }} words)</h3>
+          <div class="space-y-3">
+            <div
+              v-for="(w, i) in ytResult.words"
+              :key="i"
+              class="flex items-start justify-between gap-3 p-3 rounded-xl border transition-all"
+              :class="ytSaved.has(w.word)
+                ? 'border-green-500/30 bg-green-500/5'
+                : 'border-brand-border/20 bg-brand-black/40 hover:border-accent-red/20'"
+            >
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-display font-bold text-white">{{ w.word }}</span>
+                  <span class="text-accent-amber text-sm">· {{ w.translation }}</span>
+                </div>
+                <p class="text-gray-400 text-sm mt-0.5">{{ w.definition }}</p>
+                <p v-if="w.example" class="text-gray-600 text-xs mt-1 italic">"{{ w.example }}"</p>
+              </div>
+              <button
+                class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                :class="ytSaved.has(w.word)
+                  ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                  : 'bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20'"
+                @click="addYtWord(w)"
+              >
+                {{ ytSaved.has(w.word) ? '✓ Saved' : '+ Save' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transcript -->
+        <div class="glass-card p-5">
+          <button
+            class="flex items-center justify-between w-full text-left"
+            @click="showTranscript = !showTranscript"
+          >
+            <h3 class="font-display font-bold text-white">📄 Full Transcript</h3>
+            <span class="text-gray-500 text-sm">{{ showTranscript ? '▲ Hide' : '▼ Show' }}</span>
+          </button>
+          <div v-if="showTranscript" class="mt-4 max-h-72 overflow-y-auto">
+            <p class="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">{{ ytResult.fullText }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Not logged in -->
     <div v-if="!user" class="px-4 sm:px-6 max-w-md mx-auto text-center py-20">
       <p class="text-4xl mb-4">🔒</p>
@@ -321,6 +588,14 @@ interface VocabWord {
   example: string
   translation: string
   created_at: string
+  collection_id?: string | null
+}
+
+interface Collection {
+  id: string
+  name: string
+  emoji: string
+  created_at: string
 }
 
 interface QuizQuestion {
@@ -335,13 +610,16 @@ const user = useSupabaseUser()
 // ─── State ───────────────────────────────────────────────
 const words = ref<VocabWord[]>([])
 const loading = ref(false)
+const fetchError = ref('')
 const search = ref('')
-const activeTab = ref<'words' | 'flashcards' | 'quiz'>('words')
+const activeTab = ref<'words' | 'flashcards' | 'quiz' | 'collections' | 'youtube'>('words')
 
 const tabs = [
   { id: 'words', icon: '📖', label: 'My Words' },
   { id: 'flashcards', icon: '🃏', label: 'Flashcards' },
   { id: 'quiz', icon: '🧠', label: 'Quiz' },
+  { id: 'collections', icon: '🗂️', label: 'Collections' },
+  { id: 'youtube', icon: '🎥', label: 'YouTube' },
 ]
 
 // ─── Add word ────────────────────────────────────────────
@@ -361,11 +639,12 @@ const filteredWords = computed(() => {
 async function fetchWords() {
   if (!user.value) return
   loading.value = true
+  fetchError.value = ''
   try {
     const data = await $fetch<VocabWord[]>('/api/vocab')
     words.value = data || []
-  } catch (e) {
-    console.error(e)
+  } catch (e: any) {
+    fetchError.value = e?.data?.statusMessage || e?.message || 'Failed to load words'
   } finally {
     loading.value = false
   }
@@ -527,9 +806,154 @@ const scoreMessage = computed(() => {
   return 'Tayaq.ai is deeply disappointed. Try again.'
 })
 
+// ─── YouTube ──────────────────────────────────────────────
+interface YtWord { word: string; definition: string; example: string; translation: string }
+interface YtResult {
+  videoId: string
+  titleGuess: string
+  words: YtWord[]
+  fullText: string
+}
+
+const ytUrl = ref('')
+const ytLoading = ref(false)
+const ytError = ref('')
+const ytResult = ref<YtResult | null>(null)
+const ytSaved = ref<Set<string>>(new Set())
+const showTranscript = ref(false)
+
+async function analyzeYoutube() {
+  if (!ytUrl.value.trim() || ytLoading.value) return
+  ytLoading.value = true
+  ytError.value = ''
+  ytResult.value = null
+  ytSaved.value = new Set()
+  showTranscript.value = false
+  try {
+    const data = await $fetch<YtResult>('/api/youtube/analyze', {
+      method: 'POST',
+      body: { url: ytUrl.value.trim() },
+    })
+    ytResult.value = data
+  } catch (e: any) {
+    ytError.value = e?.data?.statusMessage || e?.message || 'Failed to analyze video. Make sure it has English captions.'
+  } finally {
+    ytLoading.value = false
+  }
+}
+
+async function addYtWord(w: YtWord) {
+  if (ytSaved.value.has(w.word)) return
+  try {
+    const data = await $fetch<VocabWord>('/api/vocab', {
+      method: 'POST',
+      body: { word: w.word, definition: w.definition, example: w.example, translation: w.translation },
+    })
+    words.value.unshift(data)
+    ytSaved.value = new Set([...ytSaved.value, w.word])
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function addAllYtWords() {
+  if (!ytResult.value) return
+  for (const w of ytResult.value.words) {
+    if (!ytSaved.value.has(w.word)) await addYtWord(w)
+  }
+}
+
+// ─── Collections ──────────────────────────────────────────
+const collections = ref<Collection[]>([])
+const activeCollection = ref<Collection | null>(null)
+const newColName = ref('')
+const newColEmoji = ref('📚')
+const creatingCol = ref(false)
+const showAddWords = ref(false)
+const assigningWordId = ref<string | null>(null)
+const assignError = ref('')
+
+const collectionEmojis = [
+  '📚','🍳','✈️','💼','🏋️','🎬','🎵','🏠','💻','🎯',
+  '🌍','❤️','🎓','🔬','🌿','🛒','🎨','⚽','🍕','💊',
+]
+
+const collectionWords = computed(() =>
+  activeCollection.value
+    ? words.value.filter(w => w.collection_id === activeCollection.value!.id)
+    : []
+)
+
+const wordsNotInCollection = computed(() =>
+  activeCollection.value
+    ? words.value.filter(w => w.collection_id !== activeCollection.value!.id)
+    : []
+)
+
+function wordCountForCollection(id: string) {
+  return words.value.filter(w => w.collection_id === id).length
+}
+
+function openCollection(col: Collection) {
+  activeCollection.value = col
+  showAddWords.value = false
+}
+
+async function fetchCollections() {
+  if (!user.value) return
+  try {
+    const data = await $fetch<Collection[]>('/api/vocab/collections')
+    collections.value = data || []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function createCollection() {
+  if (!newColName.value.trim() || creatingCol.value) return
+  creatingCol.value = true
+  try {
+    const data = await $fetch<Collection>('/api/vocab/collections', {
+      method: 'POST',
+      body: { name: newColName.value.trim(), emoji: newColEmoji.value },
+    })
+    collections.value.unshift(data)
+    newColName.value = ''
+    newColEmoji.value = '📚'
+  } catch (e) {
+    console.error(e)
+  } finally {
+    creatingCol.value = false
+  }
+}
+
+async function deleteCollection(id: string) {
+  await $fetch(`/api/vocab/collections/${id}`, { method: 'DELETE' })
+  collections.value = collections.value.filter(c => c.id !== id)
+  words.value = words.value.map(w => w.collection_id === id ? { ...w, collection_id: null } : w)
+  if (activeCollection.value?.id === id) activeCollection.value = null
+}
+
+async function assignWord(wordId: string, collectionId: string | null) {
+  assigningWordId.value = wordId
+  assignError.value = ''
+  try {
+    const updated = await $fetch<VocabWord>(`/api/vocab/${wordId}`, {
+      method: 'PATCH',
+      body: { collection_id: collectionId },
+    })
+    words.value = words.value.map(w => w.id === wordId ? { ...w, collection_id: updated.collection_id ?? null } : w)
+  } catch (e: any) {
+    assignError.value = e?.data?.statusMessage || e?.message || 'Failed to update word'
+  } finally {
+    assigningWordId.value = null
+  }
+}
+
 // ─── Tab switch ───────────────────────────────────────────
 function setTab(id: string) {
   activeTab.value = id as typeof activeTab.value
+  if (id !== 'collections') activeCollection.value = null
   if (id === 'flashcards') {
     flashIndex.value = 0
     flipped.value = false
@@ -543,10 +967,10 @@ function setTab(id: string) {
 
 // ─── Init ─────────────────────────────────────────────────
 onMounted(() => {
-  if (user.value) fetchWords()
+  if (user.value) { fetchWords(); fetchCollections() }
 })
 
-watch(user, (u) => { if (u) fetchWords() })
+watch(user, (u) => { if (u) { fetchWords(); fetchCollections() } })
 
 useHead({ title: 'Vocabulary — Tayaq.ai' })
 </script>

@@ -2,22 +2,15 @@ import { serverSupabaseClient } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
-
   const { data: { user }, error: authError } = await client.auth.getUser()
   if (authError || !user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
 
-  const body = await readBody<{ word: string; definition: string; example: string; translation: string }>(event)
-  if (!body.word?.trim()) throw createError({ statusCode: 400, statusMessage: 'word is required' })
+  const body = await readBody<{ name: string; emoji: string }>(event)
+  if (!body.name?.trim()) throw createError({ statusCode: 400, statusMessage: 'name is required' })
 
   const { data, error } = await client
-    .from('vocabulary')
-    .insert({
-      user_id: user.id,
-      word: body.word.trim().toLowerCase(),
-      definition: body.definition?.trim() || '',
-      example: body.example?.trim() || '',
-      translation: body.translation?.trim() || '',
-    })
+    .from('vocab_collections')
+    .insert({ user_id: user.id, name: body.name.trim(), emoji: body.emoji || '📚' })
     .select()
     .single()
 

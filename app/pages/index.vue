@@ -230,6 +230,91 @@
       </div>
     </section>
 
+    <!-- ===== FEATURES SHOWCASE ===== -->
+    <section class="py-20 relative">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <p class="text-accent-amber font-semibold text-sm uppercase tracking-wider mb-3">Everything You Need</p>
+          <h2 class="section-heading text-white">
+            One platform. <span class="text-gradient">Total mastery.</span>
+          </h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Daily Challenge -->
+          <NuxtLink to="/challenge" class="glass-card-hover p-6 group block">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-accent-amber/10 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">⚡</div>
+              <div>
+                <h3 class="font-display font-bold text-white">Daily Challenge</h3>
+                <p class="text-accent-amber text-xs font-semibold">NEW · Every day</p>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed">5 fresh grammar & vocabulary questions every day. Beat your streak — or face Tayaq.ai's disappointment.</p>
+          </NuxtLink>
+
+          <!-- Grammar Lessons -->
+          <NuxtLink to="/grammar" class="glass-card-hover p-6 group block">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-accent-red/10 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">📝</div>
+              <div>
+                <h3 class="font-display font-bold text-white">Grammar Lessons</h3>
+                <p class="text-accent-red text-xs font-semibold">8 topics · Interactive</p>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed">Tenses, articles, modals, conditionals — every key grammar rule explained with Kazakh examples and quizzes.</p>
+          </NuxtLink>
+
+          <!-- Live Voice -->
+          <NuxtLink to="/live" class="glass-card-hover p-6 group block">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">🎤</div>
+              <div>
+                <h3 class="font-display font-bold text-white">Live Voice Tutor</h3>
+                <p class="text-green-400 text-xs font-semibold">Real-time · OpenAI</p>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed">Speak English out loud. Our AI listens, responds in real-time, and corrects your pronunciation instantly.</p>
+          </NuxtLink>
+
+          <!-- Vocabulary -->
+          <NuxtLink to="/vocab" class="glass-card-hover p-6 group block">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">📚</div>
+              <div>
+                <h3 class="font-display font-bold text-white">Vocabulary Builder</h3>
+                <p class="text-blue-400 text-xs font-semibold">Flashcards · Quiz · YouTube</p>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed">Save words, study flashcards, take quizzes. Paste any YouTube link to extract vocabulary automatically.</p>
+          </NuxtLink>
+
+          <!-- Leaderboard -->
+          <NuxtLink to="/leaderboard" class="glass-card-hover p-6 group block">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">🏆</div>
+              <div>
+                <h3 class="font-display font-bold text-white">Leaderboard</h3>
+                <p class="text-yellow-400 text-xs font-semibold">Top 50 · Streaks</p>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed">Compete with other Kazakh learners. Rank up by maintaining streaks and surviving more roasts than anyone.</p>
+          </NuxtLink>
+
+          <!-- Community -->
+          <NuxtLink to="/community" class="glass-card-hover p-6 group block">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">👥</div>
+              <div>
+                <h3 class="font-display font-bold text-white">Community</h3>
+                <p class="text-purple-400 text-xs font-semibold">Kazakhstan · City-based</p>
+              </div>
+            </div>
+            <p class="text-gray-400 text-sm leading-relaxed">Find English learners in your city. Practice together. Suffer together. Nobody should learn alone.</p>
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
     <!-- ===== FINAL CTA ===== -->
     <section class="py-24 relative overflow-hidden">
       <div class="absolute inset-0 bg-gradient-to-t from-accent-red/5 to-transparent pointer-events-none" />
