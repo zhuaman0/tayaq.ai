@@ -19,6 +19,7 @@ export default defineNuxtConfig({
     openaiApiKey: process.env.OPENAI_API_KEY || '',
     geminiApiKey: process.env.GEMINI_API_KEY || '',
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
+    supadataApiKey: process.env.SUPADATA_API_KEY || '',
   },
   app: {
     head: {
