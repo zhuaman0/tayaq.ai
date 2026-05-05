@@ -5,7 +5,7 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
           <NuxtLink to="/" class="flex items-center gap-2 group">
-            <img src="/logo.jpg" alt="Tayaq" class="w-8 h-8 rounded-full object-cover ring-1 ring-accent-red/30" />
+            <img :src="logo" alt="Tayaq" class="w-8 h-8 rounded-full object-cover ring-1 ring-accent-red/30" />
             <span class="font-display font-bold text-xl text-white group-hover:text-accent-red transition-colors">
               Tayaq.ai
             </span>
@@ -93,7 +93,7 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div class="flex flex-col md:flex-row items-center justify-between gap-6">
           <div class="flex items-center gap-2">
-            <img src="/logo.jpg" alt="Tayaq" class="w-7 h-7 rounded-full object-cover" />
+            <img :src="logo" alt="Tayaq" class="w-7 h-7 rounded-full object-cover" />
             <span class="font-display font-bold text-lg">Tayaq.ai</span>
           </div>
           <p class="text-sm text-gray-500 text-center">
@@ -112,6 +112,7 @@
 
 <script setup lang="ts">
 const user = useSupabaseUser()
+const logo = '/logo.jpg'
 
 const displayName = computed(() => {
   return user.value?.user_metadata?.username || user.value?.email?.split('@')[0] || 'Profile'
