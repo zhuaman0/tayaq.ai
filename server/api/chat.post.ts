@@ -1,5 +1,7 @@
 import OpenAI from 'openai'
 import { buildSystemPrompt } from '~~/server/utils/persona'
+import { serverSupabaseUser } from '#supabase/server'
+import { checkRateLimit } from '~~/server/utils/rateLimit'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -21,6 +23,11 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.'
     })
   }
+
+  // Chat is open to anonymous users (signed-out browsing the demo), so we
+  // rate-limit by user.id when present and fall back to IP otherwise.
+  const user = await serverSupabaseUser(event).catch(() => null)
+  await checkRateLimit(event, { bucket: 'chat', windowMs: 5 * 60_000, max: 30 }, user?.id)
 
   const body = await readBody<ChatRequest>(event)
 

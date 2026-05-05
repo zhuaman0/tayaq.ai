@@ -66,6 +66,15 @@
           <div class="chat-bubble" :class="msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'">
             <div class="chat-content" v-html="formatMessage(msg.content)" />
             <div class="chat-footer">
+              <!-- Save-to-vocab Button (AI messages only) -->
+              <button
+                v-if="msg.role === 'assistant' && msg.content && user"
+                class="vocab-save-btn"
+                title="Save a word from this message to your vocabulary"
+                @click="openSaveModal(msg.content)"
+              >
+                <span aria-hidden="true">📚</span>
+              </button>
               <!-- TTS Replay Button (AI messages only) -->
               <button
                 v-if="msg.role === 'assistant' && msg.content && ttsSupported"
@@ -192,6 +201,13 @@
         </p>
       </div>
     </div>
+
+    <!-- Save-to-vocab modal -->
+    <SaveWordModal
+      :open="saveModalOpen"
+      :initial-word="saveModalInitial"
+      @close="saveModalOpen = false"
+    />
   </div>
 </template>
 
@@ -200,9 +216,33 @@ definePageMeta({ layout: 'chat' })
 
 const route = useRoute()
 const userAge = computed(() => Number(route.query.age) || null)
+const user = useSupabaseUser()
 
 const { messages, isLoading, error, sendMessage, initWelcome } = useChat(userAge)
 const { speak, speakChunk, stop: ttsStop, toggleMute: ttsToggleMute, isSpeaking: ttsSpeaking, isMuted: ttsMuted, isSupported: ttsSupported } = useTTS()
+
+// ─── Save-to-vocab modal ────────────────────────────────
+const saveModalOpen = ref(false)
+const saveModalInitial = ref('')
+
+// Pulls the most likely "interesting" word from an AI message:
+// 1. The first ✅ corrected sentence (its longest word)
+// 2. Otherwise the longest word > 4 chars in the message
+function pickWordFrom(content: string): string {
+  const correctedMatch = content.match(/✅\s*([^\n❌]+)/)
+  const source = correctedMatch?.[1] ?? content
+  const words = source
+    .replace(/[^A-Za-z\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 4)
+  if (!words.length) return ''
+  return words.reduce((a, b) => (b.length > a.length ? b : a))
+}
+
+function openSaveModal(content: string) {
+  saveModalInitial.value = pickWordFrom(content)
+  saveModalOpen.value = true
+}
 
 // STT: auto-send transcribed speech
 const handleSpeechResult = (text: string) => {
@@ -462,7 +502,8 @@ useHead({
   border-color: rgba(239, 68, 68, 0.3);
 }
 
-.tts-replay-btn {
+.tts-replay-btn,
+.vocab-save-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -471,8 +512,14 @@ useHead({
   transition: all 0.2s ease;
   background: none;
   border: none;
-  padding: 2px;
+  padding: 2px 4px;
   border-radius: 4px;
+  font-size: 12px;
+}
+
+.vocab-save-btn:hover {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
 }
 
 .tts-replay-btn:hover {

@@ -82,6 +82,13 @@
       </div>
     </section>
 
+    <!-- ===== DAILY CHALLENGE (logged-in users only) ===== -->
+    <section v-if="user" class="py-12 relative">
+      <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <DailyChallengeCard />
+      </div>
+    </section>
+
     <!-- ===== HOW IT WORKS ===== -->
     <section id="how-it-works" class="py-24 relative">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -331,6 +338,7 @@
 
 <script setup>
 const router = useRouter()
+const user = useSupabaseUser()
 
 // Modal state
 const isModalOpen = ref(false)

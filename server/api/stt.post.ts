@@ -1,6 +1,12 @@
 import OpenAI, { toFile } from 'openai'
+import { serverSupabaseUser } from '#supabase/server'
+import { checkRateLimit } from '~~/server/utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
+  const user = await serverSupabaseUser(event).catch(() => null)
+  // STT is expensive per call. 30 transcriptions / 5 min is generous.
+  await checkRateLimit(event, { bucket: 'stt', windowMs: 5 * 60_000, max: 30 }, user?.id)
+
   const config = useRuntimeConfig()
   const formData = await readMultipartFormData(event)
 
