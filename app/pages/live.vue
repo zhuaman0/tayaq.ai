@@ -14,8 +14,11 @@
           </div>
         </div>
         <div class="flex items-center gap-2 sm:gap-3">
-          <span v-if="userLevel" class="px-2 sm:px-3 py-1 rounded-full bg-brand-card border border-brand-border text-xs text-gray-400">
-            Level: <span class="text-white font-bold capitalize">{{ userLevel }}</span>
+          <span v-if="effectiveLevel" class="px-2 sm:px-3 py-1 rounded-full bg-brand-card border border-brand-border text-xs text-gray-400">
+            Level: <span class="text-white font-bold capitalize">{{ effectiveLevel }}</span>
+          </span>
+          <span v-if="effectiveTopic" class="px-2 sm:px-3 py-1 rounded-full bg-brand-card border border-brand-border text-xs text-gray-400">
+            Topic: <span class="text-white font-bold">{{ effectiveTopic }}</span>
           </span>
           <span v-if="userAge" class="px-2 sm:px-3 py-1 rounded-full bg-brand-card border border-brand-border text-xs text-gray-400">
             Age: <span class="text-white font-bold">{{ userAge }}</span>
@@ -56,6 +59,20 @@
         <div v-if="error" class="error-banner">
           <p class="text-accent-red text-sm">⚠️ {{ error }}</p>
         </div>
+
+        <!-- Mastery toast (when AI marks topic mastered) -->
+        <Transition name="fade">
+          <div v-if="masteryToast" class="mastery-toast">
+            <p class="text-lg font-display font-bold text-accent-amber">
+              {{ masteryToast.levelChanged ? '🎓 Level Up!' : '✅ Topic Mastered!' }}
+            </p>
+            <p class="text-sm text-gray-300 mt-1">
+              <span class="text-white font-semibold capitalize">{{ masteryToast.slug.replace(/-/g, ' ') }}</span>
+              <span v-if="masteryToast.levelChanged"> → {{ masteryToast.newLevel }}</span>
+            </p>
+            <p v-if="masteryToast.reason" class="text-xs text-gray-400 mt-2 italic">"{{ masteryToast.reason }}"</p>
+          </div>
+        </Transition>
       </div>
     </section>
 
@@ -104,6 +121,7 @@ const userLevel = computed(() => {
 const ageRef = computed(() => userAge.value)
 const levelRef = computed(() => userLevel.value)
 const topicRef = computed(() => (typeof route.query.topic === 'string' ? route.query.topic : null))
+const subjectIdRef = useDeviceId()
 const {
   isConnected,
   isConnecting,
@@ -112,11 +130,37 @@ const {
   userSubtitle,
   aiSubtitle,
   error,
+  sessionInfo,
+  masteryEvents,
   connect,
   startListening,
   stopListening,
   disconnect,
-} = useRealtimeVoice({ age: ageRef, level: levelRef, topic: topicRef })
+} = useRealtimeVoice({
+  age: ageRef,
+  level: levelRef,
+  topic: topicRef,
+  subjectId: subjectIdRef,
+})
+
+// Surface mastery toasts. We pop the latest one and show a banner for ~6s.
+const masteryToast = ref<{ slug: string; reason: string; newLevel: string; levelChanged: boolean } | null>(null)
+let masteryToastTimer: ReturnType<typeof setTimeout> | null = null
+watch(masteryEvents, (events) => {
+  const latest = events[events.length - 1]
+  if (!latest) return
+  masteryToast.value = {
+    slug: latest.slug,
+    reason: latest.reason,
+    newLevel: latest.newLevel,
+    levelChanged: latest.levelChanged,
+  }
+  if (masteryToastTimer) clearTimeout(masteryToastTimer)
+  masteryToastTimer = setTimeout(() => {
+    masteryToast.value = null
+    masteryToastTimer = null
+  }, 6000)
+}, { deep: true })
 
 // Cost protection: hard 5-minute session cap
 const MAX_SESSION_SECONDS = 5 * 60
@@ -156,6 +200,13 @@ const timeLeftColor = computed(() => {
   if (sessionSecondsLeft.value <= 30) return 'text-accent-red'
   if (sessionSecondsLeft.value <= 60) return 'text-accent-amber'
   return 'text-gray-400'
+})
+
+// Effective level/topic: server may override URL with saved progress
+const effectiveLevel = computed(() => sessionInfo.value?.level ?? userLevel.value)
+const effectiveTopic = computed(() => {
+  const slug = sessionInfo.value?.topic
+  return slug ? slug.replace(/-/g, ' ') : null
 })
 
 // Status display
@@ -257,6 +308,33 @@ useHead({
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 0.75rem;
+}
+
+.mastery-toast {
+  position: fixed;
+  top: 5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(239, 68, 68, 0.1));
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 40px rgba(245, 158, 11, 0.2);
+  text-align: center;
+  max-width: 24rem;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
 }
 
 .mic-section {

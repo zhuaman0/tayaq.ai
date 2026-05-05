@@ -284,6 +284,18 @@
               </p>
             </div>
 
+            <!-- Continue learning banner (only if user has saved progress) -->
+            <div
+              v-if="hasSavedProgress"
+              class="mb-5 p-3 rounded-lg bg-accent-amber/10 border border-accent-amber/30"
+            >
+              <p class="text-xs text-accent-amber font-bold uppercase tracking-wider mb-1">📚 Picking up where you left off</p>
+              <p class="text-sm text-white">{{ continueLabel }}</p>
+              <p class="text-xs text-gray-400 mt-1">
+                Mastered: <span class="text-white font-semibold">{{ savedProgress?.mastered_topics.length }}</span> topics
+              </p>
+            </div>
+
             <!-- Age Input -->
             <div class="mb-6">
               <label for="age-input" class="block text-sm font-medium text-gray-400 mb-2">Your Age</label>
@@ -359,21 +371,56 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 const router = useRouter()
 
 // Modal state
 const isModalOpen = ref(false)
-const userAge = ref(null)
-const userLevel = ref('intermediate')
+const userAge = ref<number | null>(null)
+const userLevel = ref<'beginner' | 'intermediate' | 'advanced'>('intermediate')
 const ageError = ref('')
-const targetMode = ref('chat') // 'chat' or 'live'
+const targetMode = ref<'chat' | 'live'>('chat')
 
-const levelOptions = [
+type LearningLevel = 'beginner' | 'intermediate' | 'advanced'
+
+const levelOptions: ReadonlyArray<{ value: LearningLevel; label: string; emoji: string }> = [
   { value: 'beginner', label: 'Beginner', emoji: '🐣' },
   { value: 'intermediate', label: 'Intermediate', emoji: '🌱' },
   { value: 'advanced', label: 'Advanced', emoji: '🔥' },
 ]
+
+// Saved progress (loaded once on mount, used for "Continue learning" CTA)
+const subjectId = useDeviceId()
+const savedProgress = ref<{
+  level: string
+  current_topic_slug: string | null
+  mastered_topics: string[]
+} | null>(null)
+
+watch(subjectId, async (id) => {
+  if (!id) return
+  try {
+    const res = await $fetch<{ progress: typeof savedProgress.value }>(
+      `/api/progress?subjectId=${encodeURIComponent(id)}`
+    )
+    savedProgress.value = res.progress
+    const lvl = res.progress?.level
+    if (lvl === 'beginner' || lvl === 'intermediate' || lvl === 'advanced') {
+      userLevel.value = lvl
+    }
+  } catch {
+    // Silent fail — progress is optional
+  }
+}, { immediate: true })
+
+const hasSavedProgress = computed(
+  () => !!savedProgress.value && savedProgress.value.mastered_topics.length > 0
+)
+const continueLabel = computed(() => {
+  if (!savedProgress.value) return ''
+  const slug = savedProgress.value.current_topic_slug ?? 'first topic'
+  return `Continue at ${savedProgress.value.level} · ${slug.replace(/-/g, ' ')}`
+})
 
 const levelDescription = computed(() => {
   if (userLevel.value === 'beginner') return 'Just starting — basics, greetings, simple sentences. Gentle mode.'
@@ -448,7 +495,9 @@ const intensityBarColor = computed(() => {
   return 'bg-red-500'
 })
 
-// Navigate to chat or live based on selected mode
+// Navigate to chat or live based on selected mode.
+// We don't need to pass subjectId in the URL — useDeviceId reads it from
+// localStorage on the destination page directly.
 const startLearning = () => {
   if (!userAge.value || ageError.value || !userLevel.value) return
   closeModal()

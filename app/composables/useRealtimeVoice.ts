@@ -9,6 +9,8 @@
  *    - Events flow over a data channel named 'oai-events'
  * 3. Push-to-talk: hold the button → unmute mic; release → commit + create response
  * 4. Subtitles: incremental delta events for both user input and AI output
+ * 5. Function calls: model can call mark_topic_mastered → we POST /api/progress
+ *    and feed the result back via conversation.item.create + response.create
  *
  * Refs:
  * - https://platform.openai.com/docs/guides/realtime-webrtc
@@ -19,6 +21,16 @@ interface RealtimeVoiceOptions {
   age: Ref<number | null>
   level?: Ref<string | null>
   topic?: Ref<string | null>
+  subjectId?: Ref<string>
+}
+
+export interface MasteryEvent {
+  slug: string
+  score: number
+  reason: string
+  newLevel: string
+  newTopicSlug: string | null
+  levelChanged: boolean
 }
 
 export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
@@ -29,11 +41,87 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
   const userSubtitle = ref('')
   const aiSubtitle = ref('')
   const error = ref<string | null>(null)
+  const sessionInfo = ref<{ level: string; topic: string | null } | null>(null)
+  const masteryEvents = ref<MasteryEvent[]>([])
 
   let pc: RTCPeerConnection | null = null
   let dc: RTCDataChannel | null = null
   let audioEl: HTMLAudioElement | null = null
   let micTrack: MediaStreamTrack | null = null
+  let connectedAt = 0
+
+  async function handleFunctionCall(item: { call_id: string; name: string; arguments: string }) {
+    let payload: Record<string, unknown> = {}
+    try {
+      payload = JSON.parse(item.arguments || '{}')
+    } catch {
+      payload = {}
+    }
+
+    let toolResult: Record<string, unknown> = { ok: false, error: 'unknown_tool' }
+
+    if (item.name === 'mark_topic_mastered') {
+      const slug = String(payload.slug ?? '')
+      const score = Number(payload.score ?? 0)
+      const reason = String(payload.reason ?? '')
+      const subjectId = opts.subjectId?.value
+
+      if (!subjectId) {
+        toolResult = { ok: false, error: 'no_subject_id' }
+      } else if (!slug) {
+        toolResult = { ok: false, error: 'missing_slug' }
+      } else {
+        try {
+          const res = await $fetch<{
+            progress: { level: string; current_topic_slug: string | null; mastered_topics: string[] }
+            levelChanged: boolean
+          }>('/api/progress', {
+            method: 'POST',
+            body: {
+              subjectId,
+              action: 'mark_mastered',
+              masteredSlug: slug,
+            },
+          })
+
+          masteryEvents.value.push({
+            slug,
+            score,
+            reason,
+            newLevel: res.progress.level,
+            newTopicSlug: res.progress.current_topic_slug,
+            levelChanged: res.levelChanged,
+          })
+
+          toolResult = {
+            ok: true,
+            new_level: res.progress.level,
+            new_topic_slug: res.progress.current_topic_slug,
+            level_changed: res.levelChanged,
+            mastered_count: res.progress.mastered_topics.length,
+          }
+        } catch (e: any) {
+          toolResult = { ok: false, error: e?.message || 'progress_update_failed' }
+        }
+      }
+    }
+
+    // Send the tool result back to the model
+    if (dc?.readyState === 'open') {
+      dc.send(
+        JSON.stringify({
+          type: 'conversation.item.create',
+          item: {
+            type: 'function_call_output',
+            call_id: item.call_id,
+            output: JSON.stringify(toolResult),
+          },
+        })
+      )
+      // Trigger the model to continue speaking with the tool result
+      dc.send(JSON.stringify({ type: 'response.create' }))
+    }
+  }
 
   function handleEvent(raw: string) {
     let evt: any
@@ -72,6 +160,16 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
         isSpeaking.value = true
         break
       case 'response.audio.done':
+        isSpeaking.value = false
+        break
+
+      // Function call complete — handle and reply
+      case 'response.output_item.done':
+        if (evt.item?.type === 'function_call') {
+          handleFunctionCall(evt.item)
+        }
+        break
+
       case 'response.done':
         isSpeaking.value = false
         break
@@ -79,7 +177,6 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
       // User started talking — interrupt AI
       case 'input_audio_buffer.speech_started':
         if (isSpeaking.value) {
-          // Tell server to truncate current response
           dc?.send(JSON.stringify({ type: 'response.cancel' }))
           isSpeaking.value = false
         }
@@ -101,12 +198,19 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
       const age = opts.age.value ?? 20
       const level = opts.level?.value ?? ''
       const topic = opts.topic?.value ?? ''
+      const subjectId = opts.subjectId?.value ?? ''
       const params = new URLSearchParams({ age: String(age) })
       if (level) params.set('level', level)
       if (topic) params.set('topic', topic)
-      const tokenRes = await $fetch<{ token: string; model: string }>(
-        `/api/realtime-token?${params.toString()}`
-      )
+      if (subjectId) params.set('subjectId', subjectId)
+      const tokenRes = await $fetch<{
+        token: string
+        model: string
+        level: string
+        topic: string | null
+      }>(`/api/realtime-token?${params.toString()}`)
+
+      sessionInfo.value = { level: tokenRes.level, topic: tokenRes.topic }
 
       // 2. Set up peer connection + audio element for AI playback
       pc = new RTCPeerConnection()
@@ -123,8 +227,8 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
       })
-      micTrack = stream.getTracks()[0]
-      micTrack.enabled = false // muted until user holds the button
+      micTrack = stream.getTracks()[0]!
+      micTrack.enabled = false
       pc.addTrack(micTrack, stream)
 
       // 4. Open data channel for events
@@ -133,14 +237,13 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
       dc.onopen = () => {
         isConnected.value = true
         isConnecting.value = false
+        connectedAt = Date.now()
       }
 
       // 5. SDP offer/answer handshake
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
 
-      // GA endpoint is /v1/realtime/calls (not /v1/realtime which is beta).
-      // Beta endpoint with GA token returns "API version mismatch".
       const sdpRes = await fetch(
         `https://api.openai.com/v1/realtime/calls?model=${tokenRes.model}`,
         {
@@ -182,7 +285,6 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
     micTrack.enabled = false
     isListening.value = false
 
-    // Commit the audio buffer and ask the model to reply
     if (dc?.readyState === 'open') {
       dc.send(JSON.stringify({ type: 'input_audio_buffer.commit' }))
       dc.send(JSON.stringify({ type: 'response.create' }))
@@ -190,6 +292,19 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
   }
 
   function disconnect() {
+    // Best-effort: record the session duration so we can track total minutes
+    const subjectId = opts.subjectId?.value
+    if (subjectId && connectedAt > 0) {
+      const seconds = Math.round((Date.now() - connectedAt) / 1000)
+      if (seconds > 1) {
+        $fetch('/api/progress', {
+          method: 'POST',
+          body: { subjectId, action: 'record_session', durationSeconds: seconds },
+        }).catch(() => {})
+      }
+    }
+    connectedAt = 0
+
     micTrack?.stop()
     if (dc) {
       try {
@@ -223,6 +338,8 @@ export function useRealtimeVoice(opts: RealtimeVoiceOptions) {
     userSubtitle,
     aiSubtitle,
     error,
+    sessionInfo,
+    masteryEvents,
     connect,
     startListening,
     stopListening,
