@@ -34,8 +34,6 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#0a0a0a' }
       ],
       link: [
-        { rel: 'icon', type: 'image/jpeg', href: '/logo.jpg' },
-        { rel: 'apple-touch-icon', href: '/logo.jpg' },
         {
           rel: 'preconnect',
           href: 'https://fonts.googleapis.com'
