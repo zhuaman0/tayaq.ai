@@ -489,6 +489,31 @@
             {{ ytLoading ? '⏳ Analyzing...' : '🔍 Analyze' }}
           </button>
         </div>
+
+        <!-- Manual transcript fallback (collapsible) -->
+        <button
+          type="button"
+          class="mt-3 text-xs text-gray-500 hover:text-accent-amber transition-colors flex items-center gap-1"
+          @click="showManualPaste = !showManualPaste"
+        >
+          <span>{{ showManualPaste ? '▼' : '▶' }}</span>
+          <span>Auto-fetch not working? Paste transcript manually</span>
+        </button>
+        <div v-if="showManualPaste" class="mt-3 space-y-2">
+          <p class="text-xs text-gray-500 leading-relaxed">
+            On YouTube, click <span class="text-white">⋯ More</span> below the video → <span class="text-white">Show transcript</span> → select all (⌘+A / Ctrl+A) → copy → paste here.
+          </p>
+          <textarea
+            v-model="ytManualTranscript"
+            rows="6"
+            placeholder="0:00 hello and welcome to this video...&#10;0:05 today we will talk about..."
+            class="w-full px-3 py-2 bg-brand-black border border-brand-border/50 rounded-lg text-white placeholder-gray-700 text-xs outline-none focus:border-accent-red/50 transition-colors font-mono resize-y"
+          />
+          <p v-if="ytManualTranscript.trim().length > 0 && ytManualTranscript.trim().length < 50" class="text-xs text-accent-amber">
+            Paste at least a few sentences (50+ chars) for the AI to extract useful vocabulary.
+          </p>
+        </div>
+
         <p v-if="ytError" class="mt-3 text-sm text-accent-red">{{ ytError }}</p>
       </div>
 
@@ -816,6 +841,8 @@ interface YtResult {
 }
 
 const ytUrl = ref('')
+const ytManualTranscript = ref('')
+const showManualPaste = ref(false)
 const ytLoading = ref(false)
 const ytError = ref('')
 const ytResult = ref<YtResult | null>(null)
@@ -824,19 +851,28 @@ const showTranscript = ref(false)
 
 async function analyzeYoutube() {
   if (!ytUrl.value.trim() || ytLoading.value) return
+  const manual = ytManualTranscript.value.trim()
+  // If user opened the manual field but pasted too little, block — better than confusing AI output
+  if (showManualPaste.value && manual.length > 0 && manual.length < 50) {
+    ytError.value = 'Pasted transcript is too short. Paste at least a few sentences.'
+    return
+  }
   ytLoading.value = true
   ytError.value = ''
   ytResult.value = null
   ytSaved.value = new Set()
   showTranscript.value = false
   try {
+    const body: { url: string; transcript?: string } = { url: ytUrl.value.trim() }
+    if (manual.length >= 50) body.transcript = manual
     const data = await $fetch<YtResult>('/api/youtube/analyze', {
       method: 'POST',
-      body: { url: ytUrl.value.trim() },
+      body,
     })
     ytResult.value = data
   } catch (e: any) {
-    ytError.value = e?.data?.statusMessage || e?.message || 'Failed to analyze video. Make sure it has English captions.'
+    ytError.value = e?.data?.statusMessage || e?.message || 'Failed to analyze video. Try the manual paste option below.'
+    showManualPaste.value = true
   } finally {
     ytLoading.value = false
   }

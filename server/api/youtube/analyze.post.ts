@@ -86,7 +86,7 @@ async function fetchViaScraper(videoId: string): Promise<TranscriptChunk[] | nul
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const { url } = await readBody<{ url: string }>(event)
+  const { url, transcript } = await readBody<{ url: string; transcript?: string }>(event)
 
   if (!url?.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'YouTube URL is required' })
@@ -98,12 +98,26 @@ export default defineEventHandler(async (event) => {
   }
 
   // Strategy:
-  // 1. If Supadata key configured → use Supadata first (works on Vercel)
-  // 2. Otherwise (or if Supadata returns null) → fall back to youtube-transcript scraper
-  //    (works on residential IPs but blocked on Vercel datacenter ranges)
+  // 1. If user supplied a manual transcript → use it directly (skips YouTube fetch)
+  // 2. If Supadata key configured → use Supadata
+  // 3. Otherwise → fall back to youtube-transcript scraper
+  //    (works on residential IPs / local dev, blocked on Vercel)
   let segments: TranscriptChunk[] | null = null
+  let usedManualPaste = false
 
-  if (config.supadataApiKey) {
+  const pasted = transcript?.trim() ?? ''
+  if (pasted.length >= 50) {
+    // Treat each line as a segment so the UI can still show the transcript
+    // even though we don't have real timestamps.
+    segments = pasted
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((text, i) => ({ text, offset: i * 5 })) // synthetic 5s spacing
+    usedManualPaste = true
+  }
+
+  if (!segments && config.supadataApiKey) {
     segments = await fetchViaSupadata(videoId, config.supadataApiKey)
   }
 
@@ -114,9 +128,7 @@ export default defineEventHandler(async (event) => {
   if (!segments || !segments.length) {
     throw createError({
       statusCode: 422,
-      statusMessage: config.supadataApiKey
-        ? 'Could not fetch transcript. The video may not have English captions, or it may be private/restricted.'
-        : 'Could not fetch transcript. Server is missing SUPADATA_API_KEY — production scrape requires it. Locally, the video may not have English subtitles enabled.',
+      statusMessage: 'Could not fetch transcript automatically. Open the video on YouTube, click "Show transcript" below it, copy the text, and paste it into the manual transcript field.',
     })
   }
 
@@ -185,5 +197,6 @@ Return exactly this JSON structure:
     words: parsed.words || [],
     segments: segments.slice(0, 200), // cap for UI
     fullText: fullText.slice(0, 8000),
+    source: usedManualPaste ? 'manual' : 'auto',
   }
 })
