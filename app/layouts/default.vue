@@ -97,7 +97,7 @@
             <span class="font-display font-bold text-lg">Tayaq.ai</span>
           </div>
           <p class="text-sm text-gray-500 text-center">
-            © 2025 Tayaq.ai. Learning English was never this painful — or this effective.
+            © {{ currentYear }} Tayaq.ai. Learning English was never this painful — or this effective.
           </p>
           <div class="flex gap-4">
             <NuxtLink to="/leaderboard" class="text-gray-500 hover:text-accent-red transition-colors text-sm">Leaderboard</NuxtLink>
@@ -113,6 +113,7 @@
 <script setup lang="ts">
 import logo from '~/assets/logo.jpg'
 
+const currentYear = new Date().getFullYear()
 const user = useSupabaseUser()
 
 const displayName = computed(() => {
